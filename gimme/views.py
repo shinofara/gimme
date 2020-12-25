@@ -19,12 +19,14 @@
 The views are what gets rendered in the browser when people browse to the
 different routes.
 """
+
 from __future__ import absolute_import, print_function, unicode_literals
 
 from flask import (Blueprint, current_app, flash, redirect, render_template,
                    session, url_for)
 from flask_dance.contrib.google import google
 from oauthlib.oauth2.rfc6749.errors import InvalidClientIdError, TokenExpiredError
+
 
 from gimme.forms import RequestForm
 from gimme.helpers import add_conditional_binding, login_required
@@ -47,7 +49,6 @@ def index():
         'index.html.j2',
         form=form,
     )
-
 
 @ui.route('/logout', methods=['GET'])
 def logout():

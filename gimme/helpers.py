@@ -21,6 +21,7 @@ import datetime
 import requests
 import urllib
 import urlparse
+import os
 from datetime import timedelta, tzinfo
 from functools import wraps
 
@@ -28,7 +29,8 @@ from oauthlib.oauth2.rfc6749.errors import OAuth2Error
 from flask import (current_app, flash, redirect, render_template, session,
                    url_for)
 from validators import url
-
+from google.oauth2 import service_account
+import googleapiclient.discovery
 CLOUD_RM = 'https://cloudresourcemanager.googleapis.com/v1/projects'
 ZERO = timedelta(0)
 
@@ -58,7 +60,6 @@ def check_valid_domain(domain, valid_domains):
     if domain in valid_domains:
         return True
     return False
-
 
 def login_required(google):
     """Enforces authentication on a route."""
@@ -93,7 +94,6 @@ def login_required(google):
         return decorated_route
     return decorated
 
-
 class UTC(tzinfo):
     """A tzinfo class representing UTC."""
 
@@ -121,19 +121,53 @@ def add_conditional_binding(google, form):
         return
     set_condition(google, form, project, 'user')
 
+def get_policy(project_id, version=3):
+    """Gets IAM policy for a project."""
+
+    credentials = service_account.Credentials.from_service_account_file(
+        filename=os.environ["GOOGLE_APPLICATION_CREDENTIALS"],
+        scopes=["https://www.googleapis.com/auth/cloud-platform"],
+    )
+    service = googleapiclient.discovery.build(
+        "cloudresourcemanager", "v1", credentials=credentials
+    )
+    policy = (
+        service.projects()
+        .getIamPolicy(
+            resource=project_id,
+            body={"options": {"requestedPolicyVersion": version}},
+        )
+        .execute()
+    )
+    return policy
+
+
+def set_policy(project_id, policy):
+    """Sets IAM policy for a project."""
+
+    credentials = service_account.Credentials.from_service_account_file(
+        filename=os.environ["GOOGLE_APPLICATION_CREDENTIALS"],
+        scopes=["https://www.googleapis.com/auth/cloud-platform"],
+    )
+    service = googleapiclient.discovery.build(
+        "cloudresourcemanager", "v1", credentials=credentials
+    )
+
+    policy = (
+        service.projects()
+        .setIamPolicy(resource=project_id, body={"policy": policy})
+        .execute()
+    )
+
+    return policy
+
+
 def set_condition(google, form, project, user_or_group):
-    url = '{}/{}:getIamPolicy'.format(CLOUD_RM, project)
-    try:
-        cur_policy = google.post(url)
-        cur_policy.raise_for_status()
-    except (OAuth2Error, requests.HTTPError):
-        flash(('Could not fetch IAM policy for: {}. This likely means the '
-            'project ID was invalid or you do not have access to '
-            'that project.').format(project), 'error')
-        return
     expiry = (datetime.datetime.now(utc) + datetime.timedelta(
         minutes=form.period.data)).isoformat()
-    new_policy = {'policy': cur_policy.json()}
+    
+    new_policy = {'policy': get_policy(project)}
+
     new_policy['policy']['bindings'].append(
         {'condition': {
             'expression': 'request.time < timestamp("{}")'.format(expiry),
@@ -142,13 +176,12 @@ def set_condition(google, form, project, user_or_group):
         'members': ['{}:{}@{}'.format(user_or_group, form.target.data,
                                         form.domain.data)],
         'role': form.access.data})
-    url = '{}/{}:setIamPolicy'.format(CLOUD_RM, project)
+
+    new_policy['policy']['version'] = 3
+
     try:
-        result = google.post(url, json=new_policy)
-        result.raise_for_status()
+        set_policy(project, new_policy['policy'])
     except (OAuth2Error, requests.HTTPError):
-        if 'is of type "group"' in result.json()['error']['message']:
-            return set_condition(google, form, project, 'group')
         flash('Could not apply new policy: {}'.format(
             result.json()['error']['message']), 'error')
         return
