@@ -28,15 +28,13 @@ class RequestForm(FlaskForm):
         label='access',
         description='level of access you require',
         choices=[
-            ('roles/storage.admin',
-             'Administrative access to Cloud Storage'),
-            ('roles/compute.instanceAdmin',
-             'Administrative access to Compute Engine'),
-            ('roles/bigquery.admin',
-             'Administrative access to BigQuery'),
-            ('roles/container.admin',
-             ('Administrative access to Kubernetes and '
-              'the Kubernetes API')),
+            ('roles/cloudscheduler.jobRunner', 'Cloud Scheduler ジョブ実行者'),
+            ('roles/storage.admin', 'Administrative access to Cloud Storage'),
+            ('roles/compute.instanceAdmin', 'Administrative access to Compute Engine'),
+            ('roles/bigquery.admin', 'Administrative access to BigQuery'),
+            ('roles/container.admin','Administrative access to Kubernetes and the Kubernetes API'),
+            ('roles/cloudsql.editor', 'Cloud SQL 編集者'),
+            ('roles/secretmanager.admin', 'Secret Manager 管理者'),
         ],
         validators=[validators.DataRequired()])
 
