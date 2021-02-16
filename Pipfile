@@ -9,6 +9,9 @@ flask-wtf = "*"
 blinker = "*"
 flask-dance = "*"
 validators = "*"
+google-auth = "*"
+google-auth-httplib2 = "*"
+google-api-python-client = "*"
 
 [dev-packages]
 pytest = "*"

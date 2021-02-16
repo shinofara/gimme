@@ -104,3 +104,8 @@ venv.bak/
 .mypy_cache/
 .vscode
 .tool-versions
+
+
+requirements.txt
+sa.json
+startup.sh
